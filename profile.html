@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile – gauch.ai</title>
+  <link rel="stylesheet" href="css/app.css" />
+  <link rel="apple-touch-icon" href="/icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#ffffff" />
+  <style>
+    .button {
+      background: white;
+      border: 1px solid black;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      color:black;
+    }
+    .button:hover {
+      background: #f9f9f9;
+    }
+
+    .hidden { display: none; }
+    .mt16 { margin-top: 16px; }
+    .mt24 { margin-top: 24px; }
+    .input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <!-- Profile Section -->
+    <section id="profile-section" class="card">
+      <h1 class="header" id="profile-name">Loading…</h1>
+      <p id="gossip-message" class="subtle">Sign in to view this person's gossip</p>
+
+    </section>
+
+    <!-- Gossip Section (appears after sign in) -->
+    <section id="gossip-section" class="card mt24 hidden">
+      <h2 class="header">Gossip</h2>
+      <p id="gossip-status">
+        This user has not claimed their account, so gossip written about them is private until they do.
+        You can still write some gossip and it will become public once this person creates their account.
+      </p>
+      <button id="write-gossip-btn" class="button mt16">Write Gossip</button>
+
+      <!-- Hidden form -->
+      <form id="gossip-form" class="hidden mt16">
+        <textarea id="gossip-text" rows="3" placeholder="Write your gossip…" class="input"></textarea>
+        <button type="submit" class="button mt16">Submit Gossip</button>
+      </form>
+
+      <ul id="gossip-list" class="list mt16"></ul>
+    </section>
+  </main>
+
+
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const phone = urlParams.get('phone');
+    document.getElementById('profile-name').innerText = `${phone}`;
+
+
+
+
+
+    const gossipSection = document.getElementById('gossip-section');
+    const gossipMessage = document.getElementById('gossip-message');
+    const writeGossipBtn = document.getElementById('write-gossip-btn');
+    const gossipForm = document.getElementById('gossip-form');
+    const gossipList = document.getElementById('gossip-list');
+
+
+
+
+    // Handle "Write Gossip" click
+    writeGossipBtn.addEventListener('click', () => {
+      gossipForm.classList.toggle('hidden');
+    });
+
+    // Submit gossip
+    gossipForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = document.getElementById('gossip-text').value.trim();
+      if (!text) return;
+
+      const li = document.createElement('li');
+      li.textContent = text;
+      gossipList.appendChild(li);
+
+      document.getElementById('gossip-text').value = '';
+      gossipForm.classList.add('hidden');
+    });
+  </script>
+</body>
+</html>

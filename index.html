@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>slush.social: view what people are anonymously saying about you</title>
+
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Birthstone&display=swap');
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #fff;
+      color: #000;
+    }
+    .birthstone-regular {
+        font-family: "Birthstone", cursive;
+        font-weight: 400;
+        font-style: normal;
+    }
+    .container {
+      text-align: center;
+      width: 100%;
+      max-width: 520px;
+      padding: 0 16px;
+      margin-top: -130px;
+    }
+    .header {
+      font-size: 3.8rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .subtle {
+      font-size: 0.95rem;
+      color: #555;
+      margin-bottom: 20px;
+    }
+    #phone-form {
+      display: none; /* HIDDEN BY DEFAULT */
+      flex-direction: column;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .input, select {
+      flex: 1;
+      padding: 12px 14px;
+      font-size: 1rem;
+      border: 1px solid #000;
+      border-radius: 8px;
+      outline: none;
+    }
+    .input:focus, select:focus {
+      border-color: #007aff;
+    }
+    .button {
+      padding: 12px 20px;
+      font-size: 1rem;
+      font-weight: 500;
+      background: #fff;
+      color: #000;
+      border: 1px solid #000;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+      box-shadow:0px 0px 15px lightgray;
+    }
+    .button:hover {
+      background: #000;
+      color: #fff;
+    }
+    .modal, .modal-backdrop {
+      display: none;
+    }
+    .modal.active, .modal-backdrop.active {
+      display: block;
+    }
+    .modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      border: 1px solid black;
+      padding: 20px;
+      z-index: 10;
+      border-radius: 10px;
+      width: 300px;
+    }
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.4);
+      z-index: 5;
+    }
+    .hidden { display: none; }
+    .mt16 { margin-top: 16px; }
+    .mt24 { margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <main class="container">
+
+
+    <!-- Sign In Modal -->
+    <div id="signin-modal" class="modal">
+      <h2 class="header">Sign In</h2>
+      You must sign in in order to view or create ratings.<br/><br/>
+
+      <label for="name" class="subtle">Name</label>
+      <input type="text" id="name" class="input" required />
+      <br/>
+
+      <label for="phone" class="subtle mt16">Phone</label>
+      <input type="text" id="phone" class="input" required />
+
+      <button id="signin-btn" class="button mt24">Sign In</button>
+    </div>
+    <div id="modal-backdrop" class="modal-backdrop"></div>
+
+    <h1 class="header birthstone-regular">slush.social</h1>
+    <p>view what people are anonymously saying about you</p><br/>
+    <button id="signin-trigger" class="button mt16">sign in</button>
+
+
+    <!-- SEARCH FORM -->
+    <form id="phone-form">
+     <p class="subtle">Enter someone's cell, insta, or snap to view their profile</p>
+      <select id="search-type">
+        <option value="phone">Phone Number</option>
+        <option value="instagram">Instagram</option>
+        <option value="snapchat">Snapchat</option>
+      </select>
+      <input type="text" id="phone-input" class="input" placeholder="(000) 000-0000" maxlength="30" required />
+      <button type="submit" class="button">View</button>
+    </form>
+  </main>
+
+<script>
+  const signinTrigger = document.getElementById('signin-trigger');
+  const signinModal = document.getElementById('signin-modal');
+  const signinBtn = document.getElementById('signin-btn');
+  const modalBackdrop = document.getElementById('modal-backdrop');
+  const phoneForm = document.getElementById('phone-form');
+
+  // Handle sign in
+  signinBtn.addEventListener('click', () => {
+    const name = document.getElementById('name').value.trim();
+    const phoneInput = document.getElementById('phone').value.trim();
+    if (!name || !phoneInput) {
+      alert('Please enter both name and phone.');
+      return;
+    }
+
+    // Close modal
+    signinModal.classList.remove('active');
+    modalBackdrop.classList.remove('active');
+
+    // Show search form
+    phoneForm.style.display = "flex";
+    signinTrigger.classList.add('hidden');
+  });
+
+  // Open modal
+  signinTrigger.addEventListener('click', () => {
+    signinModal.classList.add('active');
+    modalBackdrop.classList.add('active');
+  });
+
+  // Close modal on backdrop click
+  modalBackdrop.addEventListener('click', () => {
+    signinModal.classList.remove('active');
+    modalBackdrop.classList.remove('active');
+  });
+
+  // Search input formatting based on type
+  const phoneInputField = document.getElementById('phone-input');
+  const searchType = document.getElementById('search-type');
+
+  searchType.addEventListener('change', () => {
+    if (searchType.value === "phone") {
+      phoneInputField.placeholder = "(000) 000-0000";
+      phoneInputField.value = "";
+      phoneInputField.maxLength = 14;
+    } else {
+      phoneInputField.placeholder = `Enter ${searchType.value} username`;
+      phoneInputField.value = "";
+      phoneInputField.maxLength = 30;
+    }
+  });
+
+  // Phone number auto-format
+  phoneInputField.addEventListener('input', () => {
+    if (searchType.value === "phone") {
+      let x = phoneInputField.value.replace(/\D/g, '').substring(0,10);
+      let formatted = '';
+      if (x.length > 0) formatted += '(' + x.substring(0,3);
+      if (x.length >= 4) formatted += ') ' + x.substring(3,6);
+      if (x.length >= 7) formatted += '-' + x.substring(6,10);
+      phoneInputField.value = formatted;
+    }
+  });
+
+  // Form submit
+  phoneForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const searchValue = phoneInputField.value.trim();
+    if (!searchValue) {
+      alert("Please enter a value.");
+      return;
+    }
+    alert("You must create an account to view ratings");
+
+    // Example redirect (adjust query params based on type)
+    window.location.href = `profile.html?type=${searchType.value}&value=${encodeURIComponent(searchValue)}`;
+  });
+</script>
+</body>
+</html>
