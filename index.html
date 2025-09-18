@@ -43,7 +43,7 @@
       margin-bottom: 20px;
     }
     #phone-form {
-      display: none; /* HIDDEN BY DEFAULT */
+      display: none; /* Hidden until signed in */
       flex-direction: column;
       gap: 10px;
       justify-content: center;
@@ -76,60 +76,15 @@
       background: #000;
       color: #fff;
     }
-    .modal, .modal-backdrop {
-      display: none;
-    }
-    .modal.active, .modal-backdrop.active {
-      display: block;
-    }
-    .modal {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: white;
-      border: 1px solid black;
-      padding: 20px;
-      z-index: 10;
-      border-radius: 10px;
-      width: 300px;
-    }
-    .modal-backdrop {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.4);
-      z-index: 5;
-    }
     .hidden { display: none; }
     .mt16 { margin-top: 16px; }
-    .mt24 { margin-top: 24px; }
   </style>
 </head>
 <body>
   <main class="container">
-
-
-    <!-- Sign In Modal -->
-    <div id="signin-modal" class="modal">
-      <h2 class="header">Sign In</h2>
-      You must sign in in order to view or create ratings.<br/><br/>
-
-      <label for="name" class="subtle">Name</label>
-      <input type="text" id="name" class="input" required />
-      <br/>
-
-      <label for="phone" class="subtle mt16">Phone</label>
-      <input type="text" id="phone" class="input" required />
-
-      <button id="signin-btn" class="button mt24">Sign In</button>
-    </div>
-    <div id="modal-backdrop" class="modal-backdrop"></div>
-
     <h1 class="header birthstone-regular">slush.social</h1>
     <p>view what people are anonymously saying about you</p><br/>
-    <button id="signin-trigger" class="button mt16">sign in</button>
-
+    <button id="signin-trigger" class="button mt16">Sign in with Google</button>
 
     <!-- SEARCH FORM -->
     <form id="phone-form">
@@ -144,47 +99,56 @@
     </form>
   </main>
 
-<script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+
+  // --- Firebase Config ---
+  const firebaseConfig = {
+    apiKey: "AIzaSyAbMi_EGObuHNg3hQ49ZwvG2xNKHKDjDas",
+    authDomain: "slushsocial-ec21f.firebaseapp.com",
+    projectId: "slushsocial-ec21f",
+    storageBucket: "slushsocial-ec21f.firebasestorage.app",
+    messagingSenderId: "154904967675",
+    appId: "1:154904967675:web:a021c424b5afeb462a335e",
+    measurementId: "G-EGHWV0WPXE"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
   const signinTrigger = document.getElementById('signin-trigger');
-  const signinModal = document.getElementById('signin-modal');
-  const signinBtn = document.getElementById('signin-btn');
-  const modalBackdrop = document.getElementById('modal-backdrop');
   const phoneForm = document.getElementById('phone-form');
-
-  // Handle sign in
-  signinBtn.addEventListener('click', () => {
-    const name = document.getElementById('name').value.trim();
-    const phoneInput = document.getElementById('phone').value.trim();
-    if (!name || !phoneInput) {
-      alert('Please enter both name and phone.');
-      return;
-    }
-
-    // Close modal
-    signinModal.classList.remove('active');
-    modalBackdrop.classList.remove('active');
-
-    // Show search form
-    phoneForm.style.display = "flex";
-    signinTrigger.classList.add('hidden');
-  });
-
-  // Open modal
-  signinTrigger.addEventListener('click', () => {
-    signinModal.classList.add('active');
-    modalBackdrop.classList.add('active');
-  });
-
-  // Close modal on backdrop click
-  modalBackdrop.addEventListener('click', () => {
-    signinModal.classList.remove('active');
-    modalBackdrop.classList.remove('active');
-  });
-
-  // Search input formatting based on type
   const phoneInputField = document.getElementById('phone-input');
   const searchType = document.getElementById('search-type');
 
+  // Sign in with Google
+  signinTrigger.addEventListener('click', async () => {
+    try {
+      await signInWithPopup(auth, provider);
+      console.log("User signed in!");
+    } catch (error) {
+      console.error("Sign-in error:", error);
+      alert("Failed to sign in. Please try again.");
+    }
+  });
+
+  // Persist session and auto-show form if signed in
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      signinTrigger.classList.add('hidden');
+      phoneForm.style.display = "flex";
+    } else {
+      signinTrigger.classList.remove('hidden');
+      phoneForm.style.display = "none";
+    }
+  });
+
+  // Handle search type switch
   searchType.addEventListener('change', () => {
     if (searchType.value === "phone") {
       phoneInputField.placeholder = "(000) 000-0000";
@@ -197,7 +161,7 @@
     }
   });
 
-  // Phone number auto-format
+  // Auto-format phone number
   phoneInputField.addEventListener('input', () => {
     if (searchType.value === "phone") {
       let x = phoneInputField.value.replace(/\D/g, '').substring(0,10);
@@ -209,7 +173,7 @@
     }
   });
 
-  // Form submit
+  // Form submit redirect
   phoneForm.addEventListener('submit', e => {
     e.preventDefault();
     const searchValue = phoneInputField.value.trim();
@@ -217,9 +181,6 @@
       alert("Please enter a value.");
       return;
     }
-    alert("You must create an account to view ratings");
-
-    // Example redirect (adjust query params based on type)
     window.location.href = `profile.html?type=${searchType.value}&value=${encodeURIComponent(searchValue)}`;
   });
 </script>
