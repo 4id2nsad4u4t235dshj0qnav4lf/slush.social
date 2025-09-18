@@ -503,63 +503,76 @@
       document.getElementById('error').classList.remove('hidden');
     }
 
-    // Initialize page
-    async function init() {
-      // Ensure comment popup is hidden on page load
-      document.getElementById('comment-popup').style.display = 'none';
-      
-      const urlParams = new URLSearchParams(window.location.search);
-      targetUserId = urlParams.get('user_id');
-      isMyComments = urlParams.get('my_comments') === 'true';
-      
-      if (!targetUserId && !isMyComments) {
-        showError();
+// Initialize page
+async function init() {
+  // Ensure comment popup is hidden on page load
+  document.getElementById('comment-popup').style.display = 'none';
+  
+  const urlParams = new URLSearchParams(window.location.search);
+  targetUserId = urlParams.get('user_id');
+  isMyComments = urlParams.get('my_comments') === 'true';
+  
+  if (!targetUserId && !isMyComments) {
+    showError();
+    return;
+  }
+  
+  // Wait for auth state
+  return new Promise((resolve) => {
+    onAuthStateChanged(auth, async (user) => {
+      currentUser = user;
+      if (!user) {
+        alert('Please sign in first.');
+        window.location.href = 'index.html';
         return;
       }
       
-      // Wait for auth state
-      return new Promise((resolve) => {
-        onAuthStateChanged(auth, async (user) => {
-          currentUser = user;
-          if (!user) {
-            alert('Please sign in first.');
-            window.location.href = 'index.html';
-            return;
-          }
+      try {
+        if (isMyComments) {
+          document.getElementById('profile-name').textContent = 'Comments About Me';
+          document.getElementById('profile-info').textContent =
+            'Here are all the comments people have written about you.';
+          // Hide the write comment button for "my comments" page
+          document.getElementById('write-comment-btn').style.display = 'none';
+        } else {
+          // ✅ Get user info
+          const userResult = await apiCall(`/api/get-comments?user_id=${targetUserId}`);
           
-          try {
-            if (isMyComments) {
-              document.getElementById('profile-name').textContent = 'Comments About Me';
-              document.getElementById('profile-info').textContent = 'Here are all the comments people have written about you.';
-              // Hide the write comment button for "my comments" page
-              document.getElementById('write-comment-btn').style.display = 'none';
-            } else {
-              // Get user info
-              const userResult = await apiCall(`/api/get-comments?user_id=${targetUserId}`);
-              document.getElementById('profile-name').textContent = 'User Profile';
-              document.getElementById('profile-info').textContent = userResult.user_verified ? 
-                'This user has verified their account.' : 
-                'This user has not verified their account yet. Comments will be visible when they sign up.';
-              // Show the write comment button for other users
-              document.getElementById('write-comment-btn').style.display = 'block';
-            }
-            
-            document.getElementById('loading').classList.add('hidden');
-            document.getElementById('profile-section').classList.remove('hidden');
-            document.getElementById('comments-section').classList.remove('hidden');
-            
-            await loadComments();
-            resolve();
-          } catch (error) {
-            console.error('Error initializing:', error);
-            // Show a more user-friendly error
-            document.getElementById('loading').classList.add('hidden');
-            document.getElementById('error').classList.remove('hidden');
-            document.getElementById('error').innerHTML = '<p>Error loading profile. Please try again.</p>';
+          // ✅ INSERT YOUR BANNER SNIPPET HERE
+          if (userResult.placeholder) {
+            const banner = document.createElement('div');
+            banner.innerHTML = `
+              <div class="bg-yellow-100 text-yellow-800 p-4 rounded-xl text-center mb-4">
+                This person has not created an account yet. Your comment will remain private until they sign up.
+              </div>
+            `;
+            // Prepend into comments-section card so it sits at the top
+            document.querySelector('#comments-section').prepend(banner);
           }
-        });
-      });
-    }
+
+          document.getElementById('profile-name').textContent = 'User Profile';
+          document.getElementById('profile-info').textContent = userResult.user_verified
+            ? 'This user has verified their account.'
+            : 'This user has not verified their account yet. Comments will be visible when they sign up.';
+          document.getElementById('write-comment-btn').style.display = 'block';
+        }
+        
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('profile-section').classList.remove('hidden');
+        document.getElementById('comments-section').classList.remove('hidden');
+        
+        await loadComments();
+        resolve();
+      } catch (error) {
+        console.error('Error initializing:', error);
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('error').classList.remove('hidden');
+        document.getElementById('error').innerHTML = '<p>Error loading profile. Please try again.</p>';
+      }
+    });
+  });
+}
+
 
     // Event listeners
     document.getElementById('write-comment-btn').addEventListener('click', showCommentPopup);
