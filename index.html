@@ -49,6 +49,58 @@
       justify-content: center;
       margin-top: 20px;
     }
+    #verification-form {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    #main-buttons {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .button.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .popup {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .popup-content {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .popup-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .close-button {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #666;
+    }
     .input, select {
       flex: 1;
       padding: 12px 14px;
@@ -82,12 +134,35 @@
 </head>
 <body>
   <main class="container">
+  <!--<h2 class="birthstone-regular">isla vista</h2>-->
     <h1 class="header birthstone-regular">slush.social</h1>
-    <p>view what people are anonymously saying about you</p><br/>
-    <button id="signin-trigger" class="button mt16">Sign in with Google</button>
+    <p>view what people are anonymously saying about you in isla vista</p><br/>
+    <button id="signin-trigger" class="button mt16">Join</button>
+
+    <!-- PHONE VERIFICATION FORM -->
+    <form id="verification-form">
+      <p class="subtle">Add your phone number and social media to access the platform</p>
+      <input type="text" id="phone-verify" class="input" placeholder="(000) 000-0000" maxlength="14" required />
+      <input type="text" id="instagram-verify" class="input" placeholder="Instagram username (optional)" maxlength="30" />
+      <input type="text" id="snapchat-verify" class="input" placeholder="Snapchat username (optional)" maxlength="30" />
+      <button type="submit" class="button">Send Verification Code</button>
+    </form>
+
+    <!-- CODE VERIFICATION FORM -->
+    <form id="code-form" style="display: none;">
+      <p class="subtle">Enter the 6-digit code sent to your phone</p>
+      <input type="text" id="verification-code" class="input" placeholder="000000" maxlength="6" required />
+      <button type="submit" class="button">Verify</button>
+    </form>
+
+    <!-- MAIN BUTTONS -->
+    <div id="main-buttons">
+      <button id="view-profile-btn" class="button">View Someone's Profile</button>
+      <button id="my-comments-btn" class="button">View Comments About Me</button>
+    </div>
 
     <!-- SEARCH FORM -->
-    <form id="phone-form">
+    <form id="phone-form" style="display: none;">
      <p class="subtle">Enter someone's cell, insta, or snap to view their profile</p>
       <select id="search-type">
         <option value="phone">Phone Number</option>
@@ -97,6 +172,29 @@
       <input type="text" id="phone-input" class="input" placeholder="(000) 000-0000" maxlength="30" required />
       <button type="submit" class="button">View</button>
     </form>
+
+    <!-- VERIFICATION POPUP -->
+    <div id="verification-popup" class="popup">
+      <div class="popup-content">
+        <div class="popup-header">
+          <h3>Verify Your Account</h3>
+          <button class="close-button" id="close-verification-popup">&times;</button>
+        </div>
+        
+        <p class="subtle">To use this feature, you need to verify your phone number and add your social media. This opens you up to comments from others.</p>
+        
+        <form id="verification-popup-form">
+          <input type="text" id="popup-phone-verify" class="input" placeholder="(000) 000-0000" maxlength="14" required />
+          <input type="text" id="popup-instagram-verify" class="input" placeholder="Instagram username (optional)" maxlength="30" />
+          <input type="text" id="popup-snapchat-verify" class="input" placeholder="Snapchat username (optional)" maxlength="30" />
+          
+          <div style="display: flex; gap: 12px; margin-top: 16px;">
+            <button type="submit" class="button">Verify Account</button>
+            <button type="button" class="button" id="cancel-verification" onclick="hideVerificationPopup(); return false;">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </main>
 
 <script type="module">
@@ -122,9 +220,61 @@
   const provider = new GoogleAuthProvider();
 
   const signinTrigger = document.getElementById('signin-trigger');
+  const verificationForm = document.getElementById('verification-form');
+  const codeForm = document.getElementById('code-form');
+  const mainButtons = document.getElementById('main-buttons');
   const phoneForm = document.getElementById('phone-form');
   const phoneInputField = document.getElementById('phone-input');
   const searchType = document.getElementById('search-type');
+  const phoneVerifyField = document.getElementById('phone-verify');
+  const instagramVerifyField = document.getElementById('instagram-verify');
+  const snapchatVerifyField = document.getElementById('snapchat-verify');
+  const verificationCodeField = document.getElementById('verification-code');
+  const viewProfileBtn = document.getElementById('view-profile-btn');
+  const myCommentsBtn = document.getElementById('my-comments-btn');
+  
+  // Popup elements
+  const verificationPopup = document.getElementById('verification-popup');
+  const popupPhoneVerify = document.getElementById('popup-phone-verify');
+  const popupInstagramVerify = document.getElementById('popup-instagram-verify');
+  const popupSnapchatVerify = document.getElementById('popup-snapchat-verify');
+  const verificationPopupForm = document.getElementById('verification-popup-form');
+
+  let currentUser = null;
+  let userProfile = null;
+
+  // API base URL
+  const API_BASE = 'http://localhost:5000';
+
+  // Helper function to get Firebase ID token
+  async function getIdToken() {
+    if (!currentUser) return null;
+    return await currentUser.getIdToken();
+  }
+
+  // Helper function to make API calls
+  async function apiCall(endpoint, options = {}) {
+    const token = await getIdToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'API call failed');
+    }
+    
+    return response.json();
+  }
 
   // Sign in with Google
   signinTrigger.addEventListener('click', async () => {
@@ -137,14 +287,172 @@
     }
   });
 
-  // Persist session and auto-show form if signed in
-  onAuthStateChanged(auth, user => {
+  // Check user profile status
+  async function checkUserProfile() {
+    try {
+      userProfile = await apiCall('/api/user-profile');
+      return userProfile;
+    } catch (error) {
+      console.error('Error checking user profile:', error);
+      return null;
+    }
+  }
+
+  // Show verification popup
+  function showVerificationPopup() {
+    verificationPopup.style.display = "flex";
+  }
+
+  // Hide verification popup
+  function hideVerificationPopup() {
+    verificationPopup.style.display = "none";
+    popupPhoneVerify.value = "";
+    popupInstagramVerify.value = "";
+    popupSnapchatVerify.value = "";
+  }
+
+  // Persist session and auto-show appropriate form
+  onAuthStateChanged(auth, async user => {
+    currentUser = user;
     if (user) {
       signinTrigger.classList.add('hidden');
-      phoneForm.style.display = "flex";
+      
+      // Always show main buttons first, but check verification status
+      verificationForm.style.display = "none";
+      codeForm.style.display = "none";
+      mainButtons.style.display = "flex";
+      phoneForm.style.display = "none";
+      
+      // Check if user is verified and update button states
+      const profile = await checkUserProfile();
+      if (profile && profile.verified) {
+        // User is verified, enable buttons
+        viewProfileBtn.classList.remove('disabled');
+        myCommentsBtn.classList.remove('disabled');
+      } else {
+        // User not verified, disable buttons
+        viewProfileBtn.classList.add('disabled');
+        myCommentsBtn.classList.add('disabled');
+      }
     } else {
       signinTrigger.classList.remove('hidden');
+      verificationForm.style.display = "none";
+      codeForm.style.display = "none";
+      mainButtons.style.display = "none";
       phoneForm.style.display = "none";
+    }
+  });
+
+  // COMMENTED OUT: Phone verification form (for now)
+  /*
+  verificationForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const phone = phoneVerifyField.value.trim();
+    const instagram = instagramVerifyField.value.trim();
+    const snapchat = snapchatVerifyField.value.trim();
+    
+    if (!phone) {
+      alert("Please enter your phone number.");
+      return;
+    }
+    
+    try {
+      await apiCall('/api/verify-phone', {
+        method: 'POST',
+        body: JSON.stringify({ phone, instagram, snapchat })
+      });
+      
+      verificationForm.style.display = "none";
+      codeForm.style.display = "flex";
+      alert("Verification code sent! Check the console for the code (for testing).");
+    } catch (error) {
+      alert(`Error: ${error.message}`);
+    }
+  });
+
+  // Code verification form
+  codeForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = verificationCodeField.value.trim();
+    const phone = phoneVerifyField.value.trim();
+    const instagram = instagramVerifyField.value.trim();
+    const snapchat = snapchatVerifyField.value.trim();
+    
+    if (!code) {
+      alert("Please enter the verification code.");
+      return;
+    }
+    
+    try {
+      await apiCall('/api/confirm-phone', {
+        method: 'POST',
+        body: JSON.stringify({ code, phone, instagram, snapchat })
+      });
+      
+      alert("Phone verified successfully!");
+      // Refresh user profile
+      const profile = await checkUserProfile();
+      if (profile && profile.verified) {
+        codeForm.style.display = "none";
+        mainButtons.style.display = "flex";
+      }
+    } catch (error) {
+      alert(`Error: ${error.message}`);
+    }
+  });
+  */
+
+  // Popup verification form (simplified - no SMS for now)
+  verificationPopupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const phone = popupPhoneVerify.value.trim();
+    const instagram = popupInstagramVerify.value.trim();
+    const snapchat = popupSnapchatVerify.value.trim();
+    
+    if (!phone) {
+      alert("Please enter your phone number.");
+      return;
+    }
+    
+    try {
+      // Update user profile in database
+      await apiCall('/api/update-profile', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          phone, 
+          instagram, 
+          snapchat,
+          verified: true 
+        })
+      });
+      
+      alert("Account verified successfully!");
+      
+      // Update UI
+      viewProfileBtn.classList.remove('disabled');
+      myCommentsBtn.classList.remove('disabled');
+      hideVerificationPopup();
+      
+    } catch (error) {
+      alert(`Error: ${error.message}`);
+    }
+  });
+
+  // Main buttons
+  viewProfileBtn.addEventListener('click', () => {
+    if (viewProfileBtn.classList.contains('disabled')) {
+      showVerificationPopup();
+    } else {
+      mainButtons.style.display = "none";
+      phoneForm.style.display = "flex";
+    }
+  });
+
+  myCommentsBtn.addEventListener('click', () => {
+    if (myCommentsBtn.classList.contains('disabled')) {
+      showVerificationPopup();
+    } else {
+      window.location.href = 'profile.html?my_comments=true';
     }
   });
 
@@ -161,7 +469,17 @@
     }
   });
 
-  // Auto-format phone number
+  // Auto-format phone number for verification
+  phoneVerifyField.addEventListener('input', () => {
+    let x = phoneVerifyField.value.replace(/\D/g, '').substring(0,10);
+    let formatted = '';
+    if (x.length > 0) formatted += '(' + x.substring(0,3);
+    if (x.length >= 4) formatted += ') ' + x.substring(3,6);
+    if (x.length >= 7) formatted += '-' + x.substring(6,10);
+    phoneVerifyField.value = formatted;
+  });
+
+  // Auto-format phone number for search
   phoneInputField.addEventListener('input', () => {
     if (searchType.value === "phone") {
       let x = phoneInputField.value.replace(/\D/g, '').substring(0,10);
@@ -173,15 +491,67 @@
     }
   });
 
+  // Verification code input formatting
+  verificationCodeField.addEventListener('input', () => {
+    verificationCodeField.value = verificationCodeField.value.replace(/\D/g, '').substring(0, 6);
+  });
+
+  // Popup event handlers
+  document.getElementById('close-verification-popup').addEventListener('click', () => {
+    console.log('Close button clicked');
+    hideVerificationPopup();
+  });
+  
+  document.getElementById('cancel-verification').addEventListener('click', () => {
+    console.log('Cancel button clicked');
+    hideVerificationPopup();
+  });
+  
+  // Also close popup when clicking outside
+  verificationPopup.addEventListener('click', (e) => {
+    if (e.target === verificationPopup) {
+      console.log('Clicked outside popup');
+      hideVerificationPopup();
+    }
+  });
+
+  // Auto-format phone number for popup verification
+  popupPhoneVerify.addEventListener('input', () => {
+    let x = popupPhoneVerify.value.replace(/\D/g, '').substring(0,10);
+    let formatted = '';
+    if (x.length > 0) formatted += '(' + x.substring(0,3);
+    if (x.length >= 4) formatted += ') ' + x.substring(3,6);
+    if (x.length >= 7) formatted += '-' + x.substring(6,10);
+    popupPhoneVerify.value = formatted;
+  });
+
   // Form submit redirect
-  phoneForm.addEventListener('submit', e => {
+  phoneForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const searchValue = phoneInputField.value.trim();
     if (!searchValue) {
       alert("Please enter a value.");
       return;
     }
-    window.location.href = `profile.html?type=${searchType.value}&value=${encodeURIComponent(searchValue)}`;
+    
+    try {
+      const result = await apiCall('/api/search-user', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          type: searchType.value, 
+          value: searchValue 
+        })
+      });
+      
+      if (result.found) {
+        window.location.href = `profile.html?user_id=${result.user_id}`;
+      } else {
+        alert("User not found. You can still write a comment that will be visible when they sign up.");
+        window.location.href = `profile.html?type=${searchType.value}&value=${encodeURIComponent(searchValue)}`;
+      }
+    } catch (error) {
+      alert(`Error: ${error.message}`);
+    }
   });
 </script>
 </body>
